@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earth Tangent Plank Simulator & Cosmic Gravity Experience</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- ES Module Import Map using local zero-dependency Three.js vendor bundle -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js",
+      "three/addons/": "./vendor/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="viewport"></div>
+
+  <section id="arrival-intro" aria-label="Arrival from space" hidden>
+    <div class="intro-topline"><span>EARTH / THE TANGENT EXPEDITION</span><button id="btn-skip-intro">Skip intro · Esc</button></div>
+    <div class="intro-caption"><div id="intro-altitude"></div><h1 id="intro-title"></h1><p id="intro-detail"></p></div>
+    <div class="intro-track"><div id="intro-progress"></div></div>
+  </section>
+
+  <!-- Center Crosshair for First-Person Look -->
+  <div id="crosshair"></div>
+
+  <!-- Instructions Hint -->
+  <div id="instructions-hint">
+    [Drag Viewport] Mouse Look &bull; [W,A,S,D] Move &bull; [Shift] Sprint &bull; [Space] Auto-Run &bull; [1-4] Camera Views &bull; [Esc / P] Pause
+  </div>
+
+  <div id="weather-status" role="status" hidden></div>
+
+  <!-- TOP TELEMETRY BAR -->
+  <header id="top-bar" class="glass-panel">
+    <div class="telemetry-item">
+      <span class="telemetry-label">Distance from Anchor</span>
+      <span id="val-distance" class="telemetry-value">0 m</span>
+    </div>
+    <div class="telemetry-divider"></div>
+    <div class="telemetry-item">
+      <span class="telemetry-label">Altitude Above Earth</span>
+      <span id="val-altitude" class="telemetry-value">0 m</span>
+    </div>
+    <div class="telemetry-divider"></div>
+    <div class="telemetry-item">
+      <span class="telemetry-label">Current Velocity</span>
+      <span id="val-speed" class="telemetry-value">0.0 m/s</span>
+    </div>
+    <div class="telemetry-divider"></div>
+    <div class="telemetry-item">
+      <span class="telemetry-label">Atmosphere</span>
+      <span id="val-pressure" class="telemetry-value">101.3 kPa (100% air)</span>
+    </div>
+    <div class="telemetry-divider"></div>
+    <div class="telemetry-item"><span class="telemetry-label">Air Temperature · Model</span><span id="val-temperature" class="telemetry-value">15.0 °C / 59.0 °F</span></div>
+  </header>
+
+  <!-- LEFT PHYSICS & INCLINOMETER PANEL -->
+  <aside id="left-panel" class="glass-panel">
+    <div class="panel-header">
+      <span class="panel-title">Gravity Telemetry</span>
+      <span style="font-size: 11px; color: var(--accent-cyan); font-family: var(--font-mono);">LIVE</span>
+    </div>
+
+    <!-- Human Status Badge -->
+    <div id="badge-status" class="status-badge">Normal Walking</div>
+    <div id="status-detail" class="status-detail">Earth feels flat. Gravity pulls nearly straight down.</div>
+
+    <!-- Slope & Angles -->
+    <div class="metric-row">
+      <span class="metric-name">Effective Slope Angle:</span>
+      <span id="val-slope-deg" class="metric-val highlight">0.00°</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-name">Uphill Road Grade:</span>
+      <span id="val-slope-grade" class="metric-val">0.0%</span>
+    </div>
+
+    <!-- Gravity Vector Decomposition -->
+    <div class="metric-row">
+      <span class="metric-name">Total Gravity (g):</span>
+      <span id="val-g-total" class="metric-val">9.81 m/s² (1.00 g)</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-name">Normal (Foot Grip):</span>
+      <span id="val-g-norm" class="metric-val">9.81 m/s²</span>
+    </div>
+    <div class="metric-row">
+      <span class="metric-name">Backward Pull Force:</span>
+      <span id="val-g-pull" class="metric-val highlight">0.00 m/s²</span>
+    </div>
+
+    <div class="metric-row"><span class="metric-name">Movement:</span><span id="val-motion-mode" class="metric-val">Walking / shoe grip</span></div>
+    <div class="metric-row"><span class="metric-name">Travel:</span><span id="val-travel-direction" class="metric-val">Stationary</span></div>
+    <div class="metric-row"><span class="metric-name">Lane:</span><span id="val-lane" class="metric-val">Center</span></div>
+    <!-- Real-time Inclinometer Dial -->
+    <div id="inclinometer-box">
+      <canvas id="canvas-inclinometer" width="280" height="130"></canvas>
+    </div>
+  </aside>
+
+  <!-- BOTTOM CONTROL DOCK -->
+  <nav id="bottom-dock" class="glass-panel">
+    <!-- Camera Modes -->
+    <div class="dock-row">
+      <span class="dock-group-label">Perspective:</span>
+      <button id="btn-cam-grav" class="active" title="Human inner ear sense: camera upright to local gravity. The plank bends UP into space!">
+        1. Gravity-Aligned (Inner Ear)
+      </button>
+      <button id="btn-cam-plank" title="Camera aligned to plank deck. Earth curves away and tilts beneath you!">
+        2. Plank-Aligned
+      </button>
+      <button id="btn-cam-third" title="Third person view of astronaut on plank.">
+        3. Astronaut (3rd Person)
+      </button>
+      <button id="btn-cam-orbit" title="Cosmic orbital view of the Earth sphere and tangent plank.">
+        4. Macro Orbit
+      </button>
+    </div>
+
+    <!-- Speed Controls & Navigation -->
+    <div class="dock-row">
+      <span class="dock-group-label">Speed:</span>
+      <button class="btn-speed active" data-mult="0.2777777778">Walk (5 km/h)</button>
+      <button class="btn-speed" data-mult="1">Run (18 km/h)</button>
+      <button class="btn-speed" data-mult="200">Assist (1 km/s)</button>
+      <button class="btn-speed" data-mult="10000">Assist (50 km/s)</button>
+
+      <div class="slider-container">
+        <span style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">Slider:</span>
+        <input type="range" id="speed-slider" min="-0.5563" max="4" step="0.01" value="-0.5563" title="Logarithmic speed slider">
+      </div>
+
+      <button id="btn-autopilot" title="Toggle automatic continuous forward running">▶ AUTO RUN</button>
+      <button id="btn-mag-boots" class="off" title="Toggle magnetic boots to prevent slipping at steep slope angles">🧲 MAG-BOOTS: OFF</button>
+    </div>
+
+    <!-- Waypoint Teleport & Audio / Guide -->
+    <div class="dock-row">
+      <span class="dock-group-label">Waypoint Jump:</span>
+      <select id="select-waypoint" title="Teleport directly to key physics milestones"></select>
+
+      <label class="slider-container">Mouse sensitivity <input id="look-sensitivity" type="range" min="0.5" max="5" step="0.1" value="2" aria-label="Mouse sensitivity"></label>
+      <button id="btn-replay-intro" title="Replay arrival from space and return to the anchor">↺ REPLAY ARRIVAL</button>
+      <button id="btn-pause" title="Stop movement (Escape or P)">⏸ PAUSE</button>
+      <button id="btn-audio" title="Toggle procedural sound effects">🔊 SOUND ON</button>
+      <button id="btn-guide" style="background: rgba(0, 247, 255, 0.18); border-color: var(--accent-cyan);">
+        📖 THE PHYSICS EXPLAINED
+      </button>
+    </div>
+  </nav>
+
+  <!-- SLIDE-OUT PHYSICS EXPLAINER DRAWER -->
+  <section id="guide-drawer" class="glass-panel">
+    <div class="guide-header">
+      <h2>The Physics Explained</h2>
+      <button id="btn-close-guide">&times; CLOSE</button>
+    </div>
+
+    <div class="guide-card">
+      <h3>1. Would Gravity Stop Me? How Far Could I Make It?</h3>
+      <p><strong>Gravity pulls toward the anchor; available grip and your speed determine how you move.</strong></p>
+      <p>
+        Earth is a sphere ($R_E \approx 6,371\text{ km}$). Earth's gravity always points towards its center of mass.
+        At the plank's anchor ($x = 0$), gravity points straight down into the plank ($9.81\text{ m/s}^2$).
+      </p>
+      <p>
+        As you run forward along the laser-straight plank, Earth curves away beneath you. This tilts the gravitational pull vector <em>backward</em> toward the center point by an angle:
+      </p>
+      <div class="formula-box">
+        &theta; = arctan(x / R_E)
+      </div>
+      <ul>
+        <li><strong>336 km out (Alt 8.85 km):</strong> You reach the altitude of Mt. Everest. The slope is 3.0°. Air pressure drops below 35 kPa; you run out of oxygen and suffocate without a breathing apparatus.</li>
+        <li><strong>1,133 km out (Alt 100 km):</strong> You cross the Kármán line into space vacuum on an 18% uphill road grade (10.1° slope).</li>
+        <li><strong>3,678 km out (Alt 985 km):</strong> The slope reaches <strong>30.0°</strong>! The backward pull ($3.68\text{ m/s}^2$) exceeds the maximum friction of rubber shoes ($F_{friction} = \mu F_N$). <em>Your feet slip out and you slide backwards towards Earth!</em></li>
+        <li><strong>6,371 km out (Alt 2,639 km):</strong> You are 1 Earth radius out. The plank is a <strong>45° vertical cliff</strong> climbing into deep space!</li>
+      </ul>
+    </div>
+
+    <div class="guide-card">
+      <h3>2. Would the Plank Look Bent From My Perspective?</h3>
+      <p><strong>It depends on your frame of reference!</strong></p>
+      <ul>
+        <li>
+          <strong>Gravity-Aligned View (Human Inner Ear):</strong>
+          Humans balance so that our feet point along local gravity. If your camera aligns with gravity, <em>the flat plank visually curves UPWARD into the sky like a colossal ramp or loop-de-loop!</em> Even though the plank is physically straight, you feel like you are standing in the bottom of a giant bowl.
+        </li>
+        <li>
+          <strong>Plank-Aligned View:</strong>
+          If you force your camera to stay flush with the plank deck, the plank looks straight ahead, but looking over the side, <em>Earth curves down, drops into a bottomless abyss, and tilts backwards beneath you!</em>
+        </li>
+      </ul>
+      <p>
+        Use the <strong>[1. Gravity-Aligned]</strong> and <strong>[2. Plank-Aligned]</strong> buttons in the bottom dock to toggle between these two perspectives in real time!
+      </p>
+    </div>
+
+    <div class="guide-card">
+      <h3>Movement and temperature model</h3>
+      <p>W/S move along the plank; A/D change lanes. Looking around does not steer you. Auto-run keeps the last W/S direction. Waypoint jumps preserve your lane.</p>
+      <p>Walk and Run use gravity, limited shoe traction, sliding friction, braking and air resistance. Mag-boots add grip. The high-speed presets use a powered travel assist; they are not human running.</p>
+      <p>Air temperature and density use a layered standard atmosphere, not local weather. Above the model range no air temperature is invented. Suit heating, oxygen supply, wind and structural bending are not simulated.</p>
+      <p><a href="https://ntrs.nasa.gov/api/citations/20050207438/downloads/20050207438.pdf" target="_blank" rel="noopener">NASA standard-atmosphere reference</a> · <a href="https://science.gsfc.nasa.gov/attic/cosmicopia.gsfc.nasa.gov/qa_sp_ht.html" target="_blank" rel="noopener">Temperature in space</a></p>
+    </div>
+    <div class="guide-card">
+      <h3>Interactive Controls Tip</h3>
+      <ul>
+        <li>Click the 3D viewport to move, and hold the left mouse button and drag to look. Your cursor always stays free. Press <strong>Escape</strong> or <strong>P</strong>, or click <strong>PAUSE</strong>, to stop. Click the scene to resume.</li>
+        <li>Use <strong>[W, A, S, D]</strong> to run, <strong>[Shift]</strong> to sprint.</li>
+        <li>Press <strong>[Space]</strong> or click <strong>▶ AUTO RUN</strong> to let the character run forward continuously.</li>
+        <li>Use the <strong>Speed Buttons</strong> or <strong>Slider</strong> to travel at cosmic speeds ($1\text{ km/s}$ to $50\text{ km/s}$) to watch the Earth drop away in seconds!</li>
+        <li>Turn off <strong>🧲 MAG-BOOTS</strong> at &gt;3,678 km to watch realistic friction loss slide you down!</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Application Modules -->
+  <script type="module" src="js/main.js?v=clouds-1"></script>
+</body>
+</html>

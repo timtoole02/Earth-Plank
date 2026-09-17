@@ -1,0 +1,465 @@
+/* styles.css - Modern sci-fi telemetry UI and glassmorphism styling */
+
+:root {
+  --bg-dark: rgba(10, 15, 24, 0.78);
+  --border-glow: rgba(0, 247, 255, 0.28);
+  --accent-cyan: #00f7ff;
+  --accent-yellow: #ffaa00;
+  --accent-pink: #ff0055;
+  --text-primary: #e6f1ff;
+  --text-dim: #8ba2be;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #010308;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+#viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Glassmorphic Panel utility */
+.glass-panel {
+  background: var(--bg-dark);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(0, 247, 255, 0.05);
+  pointer-events: auto;
+}
+
+/* TOP TELEMETRY BAR */
+#top-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 24px;
+  padding: 12px 28px;
+  align-items: center;
+}
+
+.telemetry-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 110px;
+}
+
+.telemetry-label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+.telemetry-value {
+  font-size: 18px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-cyan);
+  text-shadow: 0 0 10px rgba(0, 247, 255, 0.4);
+}
+
+.telemetry-divider {
+  width: 1px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* LEFT PHYSICS & STATUS PANEL */
+#left-panel {
+  position: absolute;
+  top: 90px;
+  left: 20px;
+  width: 320px;
+  z-index: 10;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 247, 255, 0.2);
+  padding-bottom: 8px;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+/* Status Badge */
+.status-badge {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border: 1px solid var(--accent-cyan);
+  background: rgba(0, 247, 255, 0.1);
+  color: var(--accent-cyan);
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.status-detail {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Metrics Table */
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.metric-name {
+  color: var(--text-dim);
+}
+
+.metric-val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.metric-val.highlight {
+  color: var(--accent-pink);
+}
+
+/* Inclinometer Widget */
+#inclinometer-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+#canvas-inclinometer {
+  width: 100%;
+  height: 120px;
+  background: rgba(4, 9, 17, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* BOTTOM CONTROL DOCK */
+#bottom-dock {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 24px;
+  max-width: 95vw;
+}
+
+.dock-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.dock-group-label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+
+/* UI Buttons */
+button, select {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 247, 255, 0.3);
+  background: rgba(14, 25, 42, 0.85);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+button:hover, select:hover {
+  background: rgba(0, 247, 255, 0.2);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 247, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button.active {
+  background: var(--accent-cyan);
+  color: #010814;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 16px rgba(0, 247, 255, 0.6);
+}
+
+button.off {
+  border-color: rgba(255, 80, 80, 0.4);
+  color: #ff8888;
+}
+
+select {
+  cursor: pointer;
+  max-width: 260px;
+}
+
+/* Slider */
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 140px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+
+/* CROSSHAIR & INSTRUCTIONS OVERLAY */
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#crosshair::before, #crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(0, 247, 255, 0.6);
+}
+
+#crosshair::before {
+  top: 4px; left: 0; width: 10px; height: 2px;
+}
+
+#crosshair::after {
+  top: 0; left: 4px; width: 2px; height: 10px;
+}
+
+#instructions-hint {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  z-index: 8;
+  letter-spacing: 0.5px;
+}
+
+/* SLIDE-OUT PHYSICS EXPLAINER DRAWER */
+#guide-drawer {
+  position: absolute;
+  top: 0;
+  right: -480px;
+  width: 460px;
+  height: 100%;
+  z-index: 50;
+  padding: 30px;
+  overflow-y: auto;
+  transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#guide-drawer.open {
+  right: 0;
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 247, 255, 0.3);
+  padding-bottom: 12px;
+}
+
+.guide-header h2 {
+  font-size: 18px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.guide-card {
+  background: rgba(14, 25, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.guide-card h3 {
+  font-size: 15px;
+  color: var(--accent-yellow);
+  margin-bottom: 8px;
+}
+
+.guide-card p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.guide-card ul {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  padding-left: 20px;
+}
+
+.guide-card li {
+  margin-bottom: 6px;
+}
+
+.formula-box {
+  background: rgba(0, 0, 0, 0.5);
+  border-left: 3px solid var(--accent-cyan);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-cyan);
+  margin: 10px 0;
+}
+
+/* Close button */
+#btn-close-guide {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+/* Quieter flight instruments keep the scene readable. */
+:root { --accent-cyan: #a7d2e3; --border-glow: rgba(183, 210, 223, .22); --accent-pink: #e8b982; --bg-dark: rgba(13, 22, 31, .84); }
+.glass-panel { box-shadow: 0 8px 28px #0003; border-radius: 10px; }
+.telemetry-value { text-shadow: none; }
+button.active { box-shadow: none; background: #a7d2e3; }
+button:hover, select:hover { box-shadow: none; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #e8b982; outline-offset: 3px; }
+#top-bar { width: calc(100% - 40px); justify-content: space-around; }
+#bottom-dock { width: calc(100% - 40px); max-width: 1180px; padding: 12px 18px; gap: 9px; bottom: 16px; }
+.dock-row { gap: 8px; }
+.dock-row button, .dock-row select { font-size: 12px; padding: 7px 10px; }
+#instructions-hint { top: 94px; bottom: auto; left: auto; right: 20px; transform: none; max-width: calc(100% - 380px); border: 1px solid #ffffff25; border-radius: 7px; line-height: 1.6; }
+#crosshair { display: none; }
+.mouse-locked #crosshair { display: block; }
+.slider-container { font-size: 11px; color: var(--text-dim); }
+#look-sensitivity { width: 76px; }
+#left-panel { width: 300px; gap: 10px; padding: 15px; }
+@media (max-width: 900px) {
+  #top-bar { padding: 10px; gap: 8px; }
+  .telemetry-label { font-size: 9px; letter-spacing: 0; }
+  .telemetry-value { font-size: 13px; }
+  .telemetry-item { min-width: 0; }
+  #left-panel { width: 250px; }
+  #instructions-hint { max-width: calc(100% - 290px); }
+  #bottom-dock { max-height: 32vh; overflow-y: auto; }
+}
+@media (max-height: 720px) { #inclinometer-box { display: none; } #left-panel { gap: 6px; } }
+@media (max-width: 600px) { #left-panel { display: none; } #instructions-hint { max-width: calc(100% - 40px); } #guide-drawer { width: min(460px, 100vw); } }
+
+#viewport canvas { cursor: grab; outline: none; }
+#viewport canvas:active { cursor: grabbing; }
+#btn-pause { border-color: #e8b982; color: #e8b982; }
+
+/* Arrival sequence: leave the scenery open, with a small flight caption. */
+#arrival-intro { position: absolute; inset: 0; z-index: 60; pointer-events: none; background: linear-gradient(180deg, #0008, transparent 18%, transparent 65%, #000b); }
+#arrival-intro[hidden] { display: none; }
+.intro-topline { position: absolute; top: 28px; left: 36px; right: 36px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.intro-topline span { font-size: 11px; letter-spacing: 3px; color: #d2dbe0; }
+#btn-skip-intro { pointer-events: auto; background: #101921b3; padding: 10px 16px; }
+.intro-caption { position: absolute; bottom: 60px; left: 6vw; right: 6vw; }
+#intro-altitude { color: #e9c485; font: 12px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
+#intro-title { font-size: clamp(25px, 3.5vw, 48px); font-weight: 400; letter-spacing: -1px; margin-bottom: 12px; text-shadow: 0 2px 20px #0008; }
+#intro-detail { font-size: 14px; color: #bcc9d2; line-height: 1.6; }
+.intro-track { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #ffffff15; }
+#intro-progress { height: 100%; background: #e9c485; transform-origin: left; }
+.intro-playing #top-bar, .intro-playing #left-panel, .intro-playing #bottom-dock, .intro-playing #instructions-hint, .intro-playing #crosshair, .intro-playing #guide-drawer { visibility: hidden; pointer-events: none; }
+@media(max-width:600px) { .intro-topline { top: 18px; left: 18px; right: 18px; } .intro-topline span { font-size: 9px; letter-spacing: 1px; } }
+
+#left-panel .metric-val { font-size: 11px; text-align: right; }
+#val-temperature { font-size: 15px; }
+.guide-card a { color: var(--accent-cyan); }
+@media (max-width: 900px) { #top-bar { flex-wrap: wrap; } #left-panel { top: 125px; max-height: calc(68vh - 135px); overflow-y: auto; } #instructions-hint { top: 125px; } #val-temperature { font-size: 12px; } }
+
+#weather-status { position: absolute; top: 138px; right: 20px; z-index: 8; padding: 8px 12px; background: #172734c9; border: 1px solid #d1e2eb33; border-radius: 7px; color: #dce8ed; font: 11px var(--font-mono); letter-spacing: .6px; pointer-events: none; }
+#weather-status[hidden] { display: none; }
+@media(max-width:900px) { #weather-status { top: 186px; max-width: calc(100% - 290px); } }
+@media(max-width:600px) { #weather-status { max-width: calc(100% - 40px); } }

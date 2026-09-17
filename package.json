@@ -1,0 +1,19 @@
+{
+  "name": "earth-plank-simulator",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "3D Earth Tangent Plank Simulator & Cosmic Gravity Experience",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "threejs",
+    "physics",
+    "simulation",
+    "earth",
+    "gravity"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
