@@ -1,6 +1,12 @@
 /**
- * audio.js - Web Audio API procedural synthesizer for footstep, wind, and space ambience
+ * audio.js - Web Audio API procedural synthesizer for footstep, wind, space ambience and music
  */
+import { Music } from './music.js?v=music-2';
+
+const MUSIC_KEY = 'earth-plank-music';
+function storedMusicPreference() {
+  try { return localStorage.getItem(MUSIC_KEY) !== 'off'; } catch { return true; }
+}
 
 export class SoundSystem {
   constructor() {
@@ -18,6 +24,10 @@ export class SoundSystem {
 
     // Footstep timer
     this.lastStepTime = 0;
+
+    this.master = null;
+    this.music = null;
+    this.musicEnabled = storedMusicPreference();
   }
 
   init() {
@@ -25,6 +35,9 @@ export class SoundSystem {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioCtx();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.isMuted ? 0 : 1;
+      this.master.connect(this.ctx.destination);
 
       // 1. Procedural Wind generator (filtered white noise)
       const bufferSize = this.ctx.sampleRate * 2;
@@ -47,7 +60,7 @@ export class SoundSystem {
 
       whiteNoise.connect(this.windFilter);
       this.windFilter.connect(this.windGain);
-      this.windGain.connect(this.ctx.destination);
+      this.windGain.connect(this.master);
       whiteNoise.start();
 
       // 2. Thruster Hum generator
@@ -64,8 +77,13 @@ export class SoundSystem {
 
       this.thrusterOsc.connect(thrusterFilter);
       thrusterFilter.connect(this.thrusterGain);
-      this.thrusterGain.connect(this.ctx.destination);
+      this.thrusterGain.connect(this.master);
       this.thrusterOsc.start();
+
+      this.music = new Music(this.ctx, this.master);
+      this.music.enabled = this.musicEnabled;
+      if (this.musicEnabled) this.music.start();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
 
       this.isInitialized = true;
     } catch (err) {
@@ -79,7 +97,15 @@ export class SoundSystem {
       if (this.windGain) this.windGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
       if (this.thrusterGain) this.thrusterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
     }
+    this.master?.gain.setTargetAtTime(this.isMuted ? 0 : 1, this.ctx.currentTime, 0.05);
     return this.isMuted;
+  }
+
+  toggleMusic() {
+    this.musicEnabled = !this.musicEnabled;
+    try { localStorage.setItem(MUSIC_KEY, this.musicEnabled ? 'on' : 'off'); } catch { /* private mode */ }
+    this.music?.setEnabled(this.musicEnabled);
+    return this.musicEnabled;
   }
 
   playFootstep(speedFactor = 1.0) {
@@ -100,7 +126,7 @@ export class SoundSystem {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.master);
 
     osc.start(now);
     osc.stop(now + 0.07);
@@ -108,6 +134,7 @@ export class SoundSystem {
 
   update(speed, airDensityRatio, isMoving) {
     if (!this.isInitialized || this.isMuted || !this.ctx) return;
+    this.music?.update(airDensityRatio);
 
     const now = this.ctx.currentTime;
 
