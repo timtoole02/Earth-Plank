@@ -4,56 +4,134 @@
 import * as THREE from 'three';
 import { PLANK_WIDTH, PLANK_HALF_LENGTH } from './physics.js';
 
+// Along-deck length covered by one repeat of the deck textures (metres).
+const DECK_REPEAT = 15;
+
 /**
- * Creates the high-tech plank deck texture with grid lines and friction strips.
+ * Procedural PBR steel deck: diamond tread plates, welded seams, bolts,
+ * worn safety paint, grime and foot-polished walking lanes. Produces a colour
+ * map, a tangent-space normal map and a packed roughness (G) / metalness (B) map.
  */
-function createDeckTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d');
+function createDeckTextures() {
+  const W = 2048, H = 1024; // u spans the 30 m width, v spans DECK_REPEAT metres
+  const pxPerM = W / PLANK_WIDTH;
+  const height = new Float32Array(W * H);
+  const color = new Uint8ClampedArray(W * H * 4);
+  const orm = new Uint8ClampedArray(W * H * 4);
 
-  // Base composite dark carbon deck
-  ctx.fillStyle = '#70777c';
-  ctx.fillRect(0, 0, 512, 512);
+  // Tileable value noise.
+  const hash = (x, y) => { let n = Math.imul(x, 374761393) + Math.imul(y, 668265263); n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+  const noise = (x, y, px, py) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const w = (a, p) => ((a % p) + p) % p;
+    const a = hash(w(xi, px), w(yi, py)), b = hash(w(xi + 1, px), w(yi, py));
+    const c = hash(w(xi, px), w(yi + 1, py)), d = hash(w(xi + 1, px), w(yi + 1, py));
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const fbm = (x, y, base) => {
+    let sum = 0, amp = 0.5, f = 1;
+    for (let o = 0; o < 5; o++) { sum += amp * noise(x * base * f, y * base * f, base * f * 2, base * f); amp *= 0.5; f *= 2; }
+    return sum;
+  };
 
-  // Metal grid tiles
-  ctx.strokeStyle = '#4f565a';
-  ctx.lineWidth = 4;
-  const tileSize = 64;
-  for (let x = 0; x < 512; x += tileSize) {
-    for (let y = 0; y < 512; y += tileSize) {
-      ctx.strokeRect(x, y, tileSize, tileSize);
+  const plateW = PLANK_WIDTH / 8, plateL = DECK_REPEAT / 6;
+  const pitch = 0.11; // tread pattern spacing (m)
+  for (let y = 0; y < H; y++) {
+    const my = y / pxPerM; // metres along
+    for (let x = 0; x < W; x++) {
+      const mx = x / pxPerM; // metres across
+      const i = y * W + x;
+      const u = x / W, v = y / H;
+      // Plate seams and per-plate variation.
+      const plateX = Math.floor(mx / plateW), plateY = Math.floor(my / plateL);
+      const sx = mx - plateX * plateW, sy = my - plateY * plateL;
+      const seam = Math.min(sx, plateW - sx, sy, plateL - sy);
+      const plateTint = hash(plateX, plateY + 17) * 0.08 - 0.04;
+      // Diamond tread: alternating elongated bumps.
+      const cx = Math.floor(sx / pitch), cy = Math.floor(sy / pitch);
+      let lx = sx / pitch - cx - 0.5, ly = sy / pitch - cy - 0.5;
+      const flip = (cx + cy) & 1 ? 1 : -1;
+      const rx = (lx + flip * ly) * 0.7071, ry = (ly - flip * lx) * 0.7071;
+      const e = (rx * rx) / 0.1225 + (ry * ry) / 0.0081;
+      let h = e < 1 ? (1 - e) * 0.6 : 0;
+      // Seam groove and bevel.
+      if (seam < 0.012) h -= 0.8; else if (seam < 0.03) h -= (0.03 - seam) / 0.018 * 0.35;
+      // Bolts along plate edges.
+      const bx = Math.round(sx / 0.625) * 0.625, by = sy < plateL / 2 ? 0.06 : plateL - 0.06;
+      const bd = Math.hypot(sx - bx, sy - by);
+      if (bd < 0.028 && bx > 0.05 && bx < plateW - 0.05) h = 1.1 - bd * 12;
+      const grime = fbm(u, v, 6);
+      const fine = noise(mx * 40, my * 40, Math.round(PLANK_WIDTH * 40), DECK_REPEAT * 40);
+      h += (fine - 0.5) * 0.15;
+      height[i] = h;
+
+      // Walking lanes: foot polish around a third of the way in from each rail.
+      const lane = Math.exp(-Math.pow((Math.abs(mx - PLANK_WIDTH / 2) - 6) / 3.2, 2));
+      const polish = lane * (0.6 + 0.4 * noise(mx * 3, my * 0.4, 90, 6));
+      let r = 0.47 + plateTint + (grime - 0.5) * 0.28 + (fine - 0.5) * 0.05 + polish * 0.08;
+      let g = r * 1.01, b = r * 1.03;
+      let rough = 0.58 + (grime - 0.5) * 0.5 - polish * 0.18 + (h < -0.3 ? 0.25 : 0);
+      let metal = 0.6;
+      // Rust bloom in the seams.
+      const rust = seam < 0.05 ? Math.max(0, fbm(u * 3, v * 3, 8) - 0.52) * 3 : 0;
+      if (rust > 0) { r += rust * 0.12; g -= rust * 0.04; b -= rust * 0.1; rough += rust * 0.3; metal -= rust * 0.6; }
+      if (h < -0.3) { r *= 0.35; g *= 0.35; b *= 0.35; }
+
+      // Safety paint, worn where boots land.
+      const wear = fbm(u * 2, v * 2, 10);
+      const center = Math.abs(mx - PLANK_WIDTH / 2) < 0.1 && (my % 7.5) < 3.75;
+      const edge = Math.abs(Math.abs(mx - PLANK_WIDTH / 2) - (PLANK_WIDTH / 2 - 1.3)) < 0.08;
+      const paintMask = (center || edge) && wear > 0.32 + polish * 0.3 ? 1 : 0;
+      if (paintMask) {
+        const shade = 0.9 + (grime - 0.5) * 0.3;
+        if (center) { r = 0.95 * shade; g = 0.62 * shade; b = 0.05 * shade; }
+        else { r = g = b = 0.86 * shade; }
+        rough = 0.62 + (grime - 0.5) * 0.2; metal = 0;
+        height[i] += 0.12;
+      }
+      const o = i * 4;
+      color[o] = Math.pow(Math.max(0, r), 1 / 2.2) * 255;
+      color[o + 1] = Math.pow(Math.max(0, g), 1 / 2.2) * 255;
+      color[o + 2] = Math.pow(Math.max(0, b), 1 / 2.2) * 255;
+      color[o + 3] = 255;
+      orm[o] = 255;
+      orm[o + 1] = Math.min(1, Math.max(0.05, rough)) * 255;
+      orm[o + 2] = Math.min(1, Math.max(0, metal)) * 255;
+      orm[o + 3] = 255;
     }
   }
-
-  // Tread / friction dots
-  ctx.fillStyle = '#858b8d';
-  for (let x = 16; x < 512; x += 32) {
-    for (let y = 16; y < 512; y += 32) {
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
-      ctx.fill();
+  // Normal map from the height field (tiling in v).
+  const normal = new Uint8ClampedArray(W * H * 4);
+  const strength = 2.2;
+  for (let y = 0; y < H; y++) {
+    const yu = ((y - 1 + H) % H) * W, yd = ((y + 1) % H) * W;
+    for (let x = 0; x < W; x++) {
+      const xl = Math.max(0, x - 1), xr = Math.min(W - 1, x + 1);
+      const dx = (height[y * W + xr] - height[y * W + xl]) * strength;
+      const dy = (height[yd + x] - height[yu + x]) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const o = (y * W + x) * 4;
+      normal[o] = (-dx / len * 0.5 + 0.5) * 255;
+      normal[o + 1] = (-dy / len * 0.5 + 0.5) * 255;
+      normal[o + 2] = (1 / len * 0.5 + 0.5) * 255;
+      normal[o + 3] = 255;
     }
   }
-
-  // Fine surface grain keeps the metal from looking like flat plastic.
-  for (let i = 0; i < 24000; i++) {
-    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.04)';
-    ctx.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
-  }
-  // Bright center safety dashes
-  ctx.fillStyle = '#ffaa00';
-  ctx.fillRect(250, 64, 12, 128);
-  ctx.fillRect(250, 320, 12, 128);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  texture.repeat.set(1, 1);
-  return texture;
+  const make = (data, srgb) => {
+    const texture = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.generateMipmaps = true;
+    texture.anisotropy = 16;
+    texture.flipY = false;
+    if (srgb) texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+    return texture;
+  };
+  return { map: make(color, true), normalMap: make(normal, false), ormMap: make(orm, false) };
 }
 
 /**
@@ -101,10 +179,11 @@ export function createPlankSystem() {
 
   // 1. MACRO PLANK (Extending 25,000 km in both directions)
   const macroGeo = new THREE.BoxGeometry(PLANK_HALF_LENGTH * 2, 8, PLANK_WIDTH, 4096, 1, 1);
+  // Matches the average look of the detailed deck so the 1 km handoff is invisible.
   const macroMat = new THREE.MeshStandardMaterial({
-    color: 0x2c3545,
-    metalness: 0.85,
-    roughness: 0.4
+    color: 0x5f6468,
+    metalness: 0.8,
+    roughness: 0.5
   });
   // A single, non-overlapping coverage boundary for all distant beam surfaces.
   // Keep it synchronized with the snapped local chunk, including at endpoints.
@@ -141,16 +220,21 @@ export function createPlankSystem() {
   const localLength = 2000; // 2 km chunk
   const localGroup = new THREE.Group();
 
+  const deckTextures = createDeckTextures();
   const localDeckMat = new THREE.MeshStandardMaterial({
-    map: createDeckTexture(),
-    roughness: 0.72,
-    metalness: 0.25
+    map: deckTextures.map,
+    normalMap: deckTextures.normalMap,
+    normalScale: new THREE.Vector2(1, 1),
+    roughnessMap: deckTextures.ormMap,
+    metalnessMap: deckTextures.ormMap,
+    roughness: 1,
+    metalness: 1
   });
   const localDeckGeo = new THREE.PlaneGeometry(localLength, PLANK_WIDTH, 400, 6);
   localDeckGeo.rotateX(-Math.PI / 2);
   const uv = localDeckGeo.attributes.uv;
   const pos = localDeckGeo.attributes.position;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getZ(i) + PLANK_WIDTH / 2) / PLANK_WIDTH, pos.getX(i) / 12);
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getZ(i) + PLANK_WIDTH / 2) / PLANK_WIDTH, pos.getX(i) / DECK_REPEAT);
   uv.needsUpdate = true;
   const localDeckMesh = new THREE.Mesh(localDeckGeo, localDeckMat);
   localDeckMesh.position.y = 0.08; // Top at y = 0
@@ -159,13 +243,16 @@ export function createPlankSystem() {
 
   // Glass edge panels on both sides
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0x88ccff,
+    color: 0xb9dbe6,
     transparent: true,
-    opacity: 0.14,
-    roughness: 0.05,
-    transmission: 0,
-    thickness: 0.5,
-    clearcoat: 1.0
+    opacity: 0.1,
+    roughness: 0.04,
+    metalness: 0,
+    ior: 1.52,
+    specularIntensity: 1,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.03,
+    envMapIntensity: 1.4
   });
   const glassRailGeo = new THREE.BoxGeometry(localLength, 1.4, 0.15, 200, 1, 1);
 
@@ -180,21 +267,26 @@ export function createPlankSystem() {
   // Glowing safety top rails
   const topRailGeo = new THREE.CylinderGeometry(0.12, 0.12, localLength, 12, 200);
   topRailGeo.rotateZ(Math.PI / 2);
-  const topRailMatCyan = new THREE.MeshStandardMaterial({ color: 0xabb5ba, metalness: 0.65, roughness: 0.32 });
+  // Brushed stainless handrail.
+  const topRailMatCyan = new THREE.MeshStandardMaterial({ color: 0xc9ced1, metalness: 1, roughness: 0.28 });
   const topRailMatYellow = topRailMatCyan;
 
   const leftTopRail = new THREE.Mesh(topRailGeo, topRailMatCyan);
+  leftTopRail.castShadow = true;
   leftTopRail.position.set(0, 1.45, -PLANK_WIDTH / 2 + 0.3);
   localGroup.add(leftTopRail);
 
   const rightTopRail = new THREE.Mesh(topRailGeo, topRailMatYellow);
+  rightTopRail.castShadow = true;
   rightTopRail.position.set(0, 1.45, PLANK_WIDTH / 2 - 0.3);
   localGroup.add(rightTopRail);
 
   // Rail vertical posts every 20 meters
   const postGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.5, 12);
-  const postMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.2 });
+  const postMat = new THREE.MeshStandardMaterial({ color: 0xbfc4c7, metalness: 1, roughness: 0.3 });
   const postInstancedMesh = new THREE.InstancedMesh(postGeo, postMat, 202);
+  postInstancedMesh.castShadow = true;
+  postInstancedMesh.receiveShadow = true;
   const dummy = new THREE.Object3D();
   let postIdx = 0;
   for (let px = -localLength / 2; px <= localLength / 2; px += 20) {
@@ -270,7 +362,8 @@ export function createPlankSystem() {
       localCenterX.value = localGroup.position.x;
 
       // Texture offset follows player for continuous seamless floor movement
-      localDeckMat.map.offset.y = (snappedX / 12) % 1;
+      const offset = (snappedX / DECK_REPEAT) % 1;
+      for (const texture of [localDeckMat.map, localDeckMat.normalMap, localDeckMat.roughnessMap]) texture.offset.y = offset;
     }
   };
 }

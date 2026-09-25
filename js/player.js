@@ -13,110 +13,95 @@ export const CAMERA_MODES = {
 };
 
 /**
- * Builds a stylized 3D astronaut mesh.
+ * Builds an EVA-suited astronaut: layered cloth suit, hard upper torso,
+ * life-support backpack, bubble helmet with a gold sun visor.
+ * Faces +X. Limbs pivot at the hips and shoulders.
  */
 function createAstronautMesh() {
   const group = new THREE.Group();
 
-  // White suit material
-  const suitMat = new THREE.MeshStandardMaterial({
-    color: 0xeeeeee,
-    roughness: 0.4,
-    metalness: 0.1
+  // Multi-layer insulation fabric: soft, slightly warm white with cloth sheen.
+  const suitMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe8e5dc, roughness: 0.82, metalness: 0,
+    sheen: 1, sheenColor: new THREE.Color(0xffffff), sheenRoughness: 0.6
+  });
+  const hardMat = new THREE.MeshPhysicalMaterial({ color: 0xf1f0ec, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.3 });
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.35, metalness: 1 });
+  const jointMat = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.7 });
+  const bootMat = new THREE.MeshStandardMaterial({ color: 0x5b5f64, roughness: 0.9 });
+  // Gold-coated polycarbonate sun visor.
+  const visorMat = new THREE.MeshPhysicalMaterial({
+    color: 0xd9a441, roughness: 0.06, metalness: 1, clearcoat: 1, clearcoatRoughness: 0.02
+  });
+  const bubbleMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.18,
+    clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false
   });
 
-  // Visor gold reflective material
-  const visorMat = new THREE.MeshStandardMaterial({
-    color: 0xffb700,
-    roughness: 0.1,
-    metalness: 0.95
-  });
-
-  // Dark joints/accents
-  const jointMat = new THREE.MeshStandardMaterial({
-    color: 0x22262c,
-    roughness: 0.8
-  });
-
-  // Helper to enable shadows on mesh
-  const addMesh = (mesh) => {
+  const add = (geometry, material, x, y, z, parent = group) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    group.add(mesh);
+    parent.add(mesh);
+    return mesh;
   };
 
-  // Torso
-  const torsoGeo = new THREE.BoxGeometry(0.7, 0.85, 0.45);
-  const torso = new THREE.Mesh(torsoGeo, suitMat);
-  torso.position.y = 1.1;
-  addMesh(torso);
+  // Torso: soft suit with a hard upper torso shell and chest control unit.
+  const torso = add(new THREE.CapsuleGeometry(0.27, 0.42, 8, 20), suitMat, 0, 1.12, 0);
+  torso.scale.set(0.95, 1, 1.15);
+  add(new THREE.SphereGeometry(0.33, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), hardMat, 0, 1.3, 0).scale.set(0.95, 0.75, 1.1);
+  add(new THREE.BoxGeometry(0.1, 0.16, 0.3), hardMat, 0.3, 1.22, 0);
+  for (let i = 0; i < 3; i++) add(new THREE.CylinderGeometry(0.018, 0.018, 0.02, 12), metalMat, 0.355, 1.26 - i * 0.05, -0.08 + i * 0.08).rotation.z = Math.PI / 2;
+  add(new THREE.TorusGeometry(0.27, 0.03, 8, 32), metalMat, 0, 0.9, 0).rotation.x = Math.PI / 2;
 
-  // Life support backpack
-  const packGeo = new THREE.BoxGeometry(0.55, 0.7, 0.3);
-  const pack = new THREE.Mesh(packGeo, suitMat);
-  pack.position.set(-0.28, 1.15, 0); // on astronaut's back
-  addMesh(pack);
+  // Primary life-support backpack.
+  add(new THREE.BoxGeometry(0.26, 0.72, 0.56), hardMat, -0.36, 1.2, 0);
+  add(new THREE.BoxGeometry(0.2, 0.12, 0.5), metalMat, -0.38, 1.6, 0);
+  for (const z of [-0.15, 0.15]) add(new THREE.CylinderGeometry(0.05, 0.07, 0.1, 12), jointMat, -0.42, 0.8, z);
 
-  // Thruster nozzles
-  const nozzleGeo = new THREE.CylinderGeometry(0.06, 0.1, 0.15, 8);
-  const leftNozzle = new THREE.Mesh(nozzleGeo, jointMat);
-  leftNozzle.position.set(-0.35, 0.75, -0.15);
-  addMesh(leftNozzle);
-  const rightNozzle = new THREE.Mesh(nozzleGeo, jointMat);
-  rightNozzle.position.set(-0.35, 0.75, 0.15);
-  addMesh(rightNozzle);
+  // Helmet: neck ring, bubble, gold visor, and small helmet lights.
+  add(new THREE.TorusGeometry(0.17, 0.035, 10, 32), metalMat, 0, 1.52, 0).rotation.x = Math.PI / 2;
+  add(new THREE.SphereGeometry(0.17, 20, 16), jointMat, 0, 1.72, 0).scale.set(1, 1.15, 1);
+  const visor = add(new THREE.SphereGeometry(0.235, 32, 24, -Math.PI / 2.6, Math.PI / 1.3, Math.PI * 0.18, Math.PI * 0.5), visorMat, 0, 1.73, 0);
+  visor.rotation.y = Math.PI; // open face toward +X
+  visor.castShadow = false;
+  add(new THREE.SphereGeometry(0.25, 32, 24), bubbleMat, 0, 1.73, 0).castShadow = false;
+  for (const z of [-0.2, 0.2]) add(new THREE.BoxGeometry(0.08, 0.05, 0.05), hardMat, 0.05, 1.9, z);
 
-  // Helmet
-  const helmetGeo = new THREE.SphereGeometry(0.28, 16, 16);
-  const helmet = new THREE.Mesh(helmetGeo, suitMat);
-  helmet.position.y = 1.75;
-  addMesh(helmet);
-
-  // Visor (facing forward +X)
-  const visorGeo = new THREE.SphereGeometry(0.24, 16, 16, 0, Math.PI, 0, Math.PI);
-  const visor = new THREE.Mesh(visorGeo, visorMat);
-  visor.rotation.z = -Math.PI / 2;
-  visor.position.set(0.1, 1.75, 0);
-  addMesh(visor);
-
-  // Left & Right Legs
-  const legGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.8, 12);
-  const leftLeg = new THREE.Mesh(legGeo, suitMat);
-  leftLeg.position.set(0, 0.45, -0.2);
-  addMesh(leftLeg);
-
-  const rightLeg = new THREE.Mesh(legGeo, suitMat);
-  rightLeg.position.set(0, 0.45, 0.2);
-  addMesh(rightLeg);
-
-  // Left & Right Arms
-  const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.7, 12);
-  const leftArm = new THREE.Mesh(armGeo, suitMat);
-  leftArm.position.set(0, 1.05, -0.42);
-  addMesh(leftArm);
-
-  const rightArm = new THREE.Mesh(armGeo, suitMat);
-  rightArm.position.set(0, 1.05, 0.42);
-  addMesh(rightArm);
+  // Limbs are groups whose origin is the joint, so rotation swings naturally.
+  const limb = (x, y, z, upper, lower, radius, endGeo, endMat) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, z);
+    group.add(pivot);
+    add(new THREE.SphereGeometry(radius * 1.15, 16, 12), suitMat, 0, 0, 0, pivot);
+    add(new THREE.CapsuleGeometry(radius, upper, 6, 16), suitMat, 0, -upper / 2 - radius * 0.3, 0, pivot);
+    add(new THREE.TorusGeometry(radius * 1.02, 0.018, 8, 20), jointMat, 0, -upper - radius * 0.4, 0, pivot).rotation.x = Math.PI / 2;
+    add(new THREE.CapsuleGeometry(radius * 0.92, lower, 6, 16), suitMat, 0, -upper - lower / 2 - radius * 0.9, 0, pivot);
+    const end = add(endGeo, endMat, 0, -upper - lower - radius * 1.6, 0, pivot);
+    return { pivot, end };
+  };
+  const hipY = 0.86, shoulderY = 1.38;
+  const leftLeg = limb(0, hipY, -0.14, 0.3, 0.28, 0.1, new THREE.BoxGeometry(0.3, 0.12, 0.15), bootMat);
+  const rightLeg = limb(0, hipY, 0.14, 0.3, 0.28, 0.1, new THREE.BoxGeometry(0.3, 0.12, 0.15), bootMat);
+  for (const leg of [leftLeg, rightLeg]) leg.end.position.x = 0.05;
+  const leftArm = limb(0, shoulderY, -0.38, 0.24, 0.22, 0.08, new THREE.SphereGeometry(0.075, 16, 12), jointMat);
+  const rightArm = limb(0, shoulderY, 0.38, 0.24, 0.22, 0.08, new THREE.SphereGeometry(0.075, 16, 12), jointMat);
+  leftArm.pivot.rotation.x = -0.12;
+  rightArm.pivot.rotation.x = 0.12;
 
   return {
     group,
-    leftLeg,
-    rightLeg,
-    leftArm,
-    rightArm,
+    leftLeg: leftLeg.pivot,
+    rightLeg: rightLeg.pivot,
+    leftArm: leftArm.pivot,
+    rightArm: rightArm.pivot,
     animate(walkCycle, isMoving) {
-      if (isMoving) {
-        leftLeg.rotation.z = Math.sin(walkCycle) * 0.45;
-        rightLeg.rotation.z = -Math.sin(walkCycle) * 0.45;
-        leftArm.rotation.z = -Math.sin(walkCycle) * 0.45;
-        rightArm.rotation.z = Math.sin(walkCycle) * 0.45;
-      } else {
-        leftLeg.rotation.z = 0;
-        rightLeg.rotation.z = 0;
-        leftArm.rotation.z = 0;
-        rightArm.rotation.z = 0;
-      }
+      const swing = isMoving ? Math.sin(walkCycle) * 0.45 : 0;
+      leftLeg.pivot.rotation.z = swing;
+      rightLeg.pivot.rotation.z = -swing;
+      leftArm.pivot.rotation.z = -swing * 0.8;
+      rightArm.pivot.rotation.z = swing * 0.8;
     }
   };
 }

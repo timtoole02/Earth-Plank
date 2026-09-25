@@ -105,6 +105,19 @@ export class HUD {
       });
     }
 
+    const btnMusic = document.getElementById('btn-music');
+    if (btnMusic) {
+      const label = on => {
+        btnMusic.textContent = on ? '🎵 MUSIC ON' : '🎵 MUSIC OFF';
+        btnMusic.classList.toggle('off', !on);
+      };
+      label(this.soundSystem.musicEnabled);
+      btnMusic.addEventListener('click', () => {
+        this.soundSystem.init();
+        label(this.soundSystem.toggleMusic());
+      });
+    }
+
     // Guide Drawer Toggle
     const btnGuide = document.getElementById('btn-guide');
     const drawer = document.getElementById('guide-drawer');

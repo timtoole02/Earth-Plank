@@ -49,7 +49,8 @@ Use the local server rather than opening `index.html` directly: the game's JavaS
 | Waypoint Jump | Teleport to a milestone while keeping your lane |
 | Mouse sensitivity slider | Adjust look speed |
 | Replay Arrival | Restart the space-to-deck flight at the center anchor |
-| Sound | Toggle procedural footsteps, wind, and thruster audio |
+| Sound | Toggle all audio: footsteps, wind, thruster, and music |
+| Music | Toggle the soundtrack; your choice is remembered |
 | The Physics Explained | Open the in-game explanation and control guide |
 
 During the arrival, **Escape**, **P**, or **Skip** goes straight to the deck. The game never captures the mouse pointer. If keyboard movement isn't responding after using a menu, click the scene again. **P** and the visible **Pause** button are alternatives if the browser intercepts Escape.
@@ -66,6 +67,18 @@ The HUD shows distance from the anchor, altitude, velocity, atmospheric pressure
 
 A straight plank stays geometrically straight: changing between gravity-aligned and plank-aligned cameras changes its apparent orientation relative to you.
 
+## Graphics and sound
+
+- **Sky:** Rayleigh, Mie and ozone single scattering, computed every frame for your altitude and the sun angle. The sky darkens to black as you climb, and the sunlight on the deck warms and dims through the air.
+- **Clouds:** A raymarched cumulus layer at 1.05–2.35 km with sun-to-cloud self-shadowing, silver linings and haze. Walk up into it, through it and out above it.
+- **Ocean:** A curved sea surface under the plank with wind waves, sky reflections, sun glitter and distance haze. It blends into the globe texture as you climb.
+- **Earth from space:** Aerial perspective, a dark night side, and a limb that reddens toward the terminator.
+- **Materials:** A procedural steel deck (tread plate, welded seams, bolts, worn paint), brushed-steel rails, glass panels, and an EVA-suited astronaut. All are lit by the same sky through image-based lighting.
+- **Camera:** HDR rendering with 4× MSAA, lens bloom, ACES filmic tone mapping, a light vignette and film grain.
+- **Music:** "Tangent Drift", an original, laid-back soundtrack in the spirit of 90s flight-sim cruising music. It uses electric piano, vibraphone, bass, pads and brushes, and is synthesized live with Web Audio (no audio files). The brushes fade as the air thins, and the reverb opens up in space. It starts on your first click or key press, because browsers block audio until then.
+
+The renderer needs WebGL 2. On an Apple M3 it holds 60 fps in a 1024×768 window at 2× pixel density.
+
 ## Development
 
 The game uses plain JavaScript modules and locally bundled Three.js r160. Edit the files and refresh the browser; no bundler is required.
@@ -75,11 +88,15 @@ The game uses plain JavaScript modules and locally bundled Three.js r160. Edit t
 npm test
 ```
 
-The test suite covers gravity, atmosphere, motion and traction, arrival-path continuity, and cloud/bird visibility rules.
+The test suite covers gravity, atmosphere, motion and traction, arrival-path continuity, and cloud/bird visibility rules. Add `?debug` to the URL to expose the running app as `window.earthPlank` in devtools.
 
 ```text
 index.html / styles.css   Interface and styling
 js/main.js               Scene, lighting, animation loop, and transitions
+js/atmosphere.js         Scattering sky lookup table shared by every surface
+js/clouds.js             Volumetric cloud raymarcher and 3D noise
+js/ocean.js              Sea surface around the player
+js/postfx.js             HDR bloom, tone mapping, and output
 js/earth.js              Earth textures, atmosphere, and stable surface depth
 js/plank.js              Deck geometry and milestone markers
 js/player.js             Controls, camera modes, and astronaut
@@ -87,9 +104,10 @@ js/physics.js            Gravity and atmosphere model
 js/motion.js             Walking, drag, friction, and assisted travel
 js/intro.js              Arrival scene and flybys
 js/arrival-path.js        Smooth cinematic camera path
-js/weather.js            Clouds and animated birds
+js/weather.js            In-cloud mist, status line, and birds
 js/weather-model.js      Cloud density and visibility rules
 js/hud.js / audio.js      Telemetry and procedural sound
+js/music.js              Synthesized soundtrack
 assets/ / vendor/        Bundled textures and Three.js
 tests/                  Automated regression tests
 ```
